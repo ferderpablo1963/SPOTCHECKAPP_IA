@@ -1,127 +1,18 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f172a">
-<meta name="app-version" content="spotcheck-ocr-v3">
-<title>SpotCheck IA</title>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<style>
-*{box-sizing:border-box}body{margin:0;background:#f1f5f9;color:#0f172a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.header{background:#0f172a;color:#fff;text-align:center;padding:calc(14px + env(safe-area-inset-top)) 14px 14px}.header h1{margin:0;font-size:22px}.header p{margin:5px 0 0;color:#cbd5e1;font-size:13px}.app{max-width:760px;margin:auto;padding:14px 14px calc(35px + env(safe-area-inset-bottom))}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px #0f172a14}.card h2{margin:0 0 6px;font-size:18px}.description{margin:0 0 14px;color:#64748b;font-size:14px;line-height:1.45}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btn{width:100%;min-height:52px;border:2px solid transparent;border-radius:12px;padding:10px;font-weight:800;cursor:pointer}.btn:disabled{opacity:.55}.primary{background:#2563eb;color:#fff}.primary.active{background:#0f172a;border-color:#38bdf8}.camera{background:#16a34a;color:#fff}.secondary{background:#e2e8f0;color:#0f172a}.ocr{background:#7c3aed;color:#fff;margin-top:10px}.confirm{background:#0891b2;color:#fff;margin-top:10px}.hidden{display:none!important}.preview{display:none;width:100%;max-height:430px;object-fit:contain;background:#020617;border-radius:12px;margin-top:12px}.preview.show{display:block}.status{margin-top:10px;padding:12px;border-radius:10px;background:#e0f2fe;color:#075985;font-size:14px;line-height:1.35}.status.error{background:#fee2e2;color:#991b1b}.status.success{background:#dcfce7;color:#166534}.progress{height:11px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:10px}.progress div{height:100%;width:0;background:#7c3aed;transition:width .2s}.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.chip{padding:8px 12px;border-radius:10px;background:#dbeafe;border:2px solid #2563eb;color:#1e3a8a;font-weight:900}.edit-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}.edit-row input{min-width:0;border:2px solid #cbd5e1;border-radius:10px;padding:11px;font-size:16px}.edit-row button{border:0;border-radius:10px;padding:0 14px;background:#0f172a;color:#fff;font-weight:800}.raw{margin-top:12px}.raw summary{cursor:pointer;font-weight:700}.raw pre{white-space:pre-wrap;word-break:break-word;background:#f8fafc;border-radius:10px;padding:10px;max-height:260px;overflow:auto;font-size:12px}.room-name{font-weight:900;color:#2563eb}.floor{position:relative;width:100%;aspect-ratio:4/5;background:#f8fafc;border:3px solid #0f172a;border-radius:12px;overflow:hidden;margin-top:10px}.placeholder{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#94a3b8;padding:24px}.table{position:absolute;width:46px;height:46px;display:grid;place-items:center;border:3px solid #0f172a;border-radius:9px;background:#fff;color:#0f172a;font-weight:900;font-size:16px;cursor:pointer;transform:translate(-50%,-50%)}.table.open{background:#60a5fa}.table.occupied{background:#facc15}.table.ok{background:#22c55e;color:#052e16}.table.discrepancy{background:#dc2626;color:#fff;border-color:#7f1d1d}.legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:12px}.legend span{display:flex;align-items:center;gap:7px}.swatch{width:22px;height:22px;border:2px solid #0f172a;border-radius:5px}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.box{text-align:center;background:#f1f5f9;border-radius:10px;padding:10px 4px}.number{font-size:24px;font-weight:900}.label{font-size:11px;color:#64748b}.note{font-size:12px;color:#64748b;margin-top:10px}canvas{display:none}@media(min-width:600px){.camera-grid{grid-template-columns:1fr 1fr}}
-</style>
-</head>
-<body>
-<header class="header"><h1>SpotCheck IA</h1><p>Control móvil de mesas · Simphony · OCR v3</p></header>
-<main class="app">
-<section class="card"><h2>1. Seleccionar salón</h2><p class="description">Selecciona el salón antes de procesar el reporte.</p><div class="grid2"><button id="btnLobby" class="btn primary">Lobby Bar</button><button id="btnBuono" class="btn primary">Buono</button></div></section>
-<section class="card"><h2>2. Capturar y leer reporte</h2><p class="description">Fotografía el reporte completo, recto y con buena luz. Al aceptar la imagen, el OCR comienza automáticamente.</p><div class="grid2 camera-grid"><button id="takePhoto" class="btn camera">📷 Tomar foto</button><button id="pickImage" class="btn secondary">🖼️ Elegir imagen</button></div><input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment"><input id="galleryInput" class="hidden" type="file" accept="image/*"><img id="preview" class="preview" alt="Foto del reporte"><canvas id="workCanvas"></canvas><button id="runOcr" class="btn ocr hidden">🔄 Repetir lectura OCR</button><div id="progressWrap" class="progress hidden"><div id="progressBar"></div></div><div id="ocrStatus" class="status hidden"></div></section>
-<section class="card"><h2>3. Confirmar mesas abiertas</h2><p class="description">Revisa el resultado. Solo se conserva el número situado entre “Tbl” y “/”.</p><div id="emptyDetection" class="status">Todavía no hay mesas detectadas.</div><div id="detectedArea" class="hidden"><div id="chips" class="chips"></div><div class="edit-row"><input id="manualTables" inputmode="numeric" placeholder="Ej.: 23, 25, 30, 34"><button id="applyManual">Aplicar</button></div><button id="confirmTables" class="btn confirm">✓ Confirmar mesas abiertas</button><details class="raw"><summary>Ver texto leído por OCR</summary><pre id="rawText"></pre></details></div></section>
-<section class="card"><h2>4. Control físico</h2><span id="roomName" class="room-name">Selecciona un salón</span><p class="description">Pulsa las mesas ocupadas. Después de confirmar el reporte, una mesa ocupada que no figure abierta se pintará en rojo.</p><div id="floor" class="floor"><div class="placeholder">Selecciona Lobby Bar o Buono.</div></div><div class="legend"><span><i class="swatch" style="background:#fff"></i>No marcada</span><span><i class="swatch" style="background:#60a5fa"></i>Abierta en Simphony</span><span><i class="swatch" style="background:#22c55e"></i>Ocupada y abierta</span><span><i class="swatch" style="background:#dc2626"></i>Ocupada no abierta</span></div></section>
-<section class="card"><h2>Resumen</h2><div class="summary"><div class="box"><div id="occupiedCount" class="number">0</div><div class="label">Ocupadas</div></div><div class="box"><div id="simphonyCount" class="number">0</div><div class="label">Simphony</div></div><div class="box"><div id="discrepancyCount" class="number" style="color:#dc2626">0</div><div class="label">Discrepancias</div></div></div><p class="note">Las lecturas dudosas deben corregirse manualmente antes de confirmar.</p></section>
-</main>
-<script>
-'use strict';
-const $=id=>document.getElementById(id);
-let selectedRoom=null,selectedFile=null,ocrConfirmed=false,ocrRunning=false;
-const occupiedTables=new Set(),simphonyTables=new Set();
-const rooms={lobby:[1,2,3,4,5,6,7,8,9,10,11,20,21,22,23,24,25,30,31,32,33,34,40,41,42,43,44],buono:[1,2,3,4,5,6,7,8,10,11,12,20,21,22,23,24,30,31,32,33,34,35,36,40,41,42,43,44,50,51,60,61,80,81,82,83,84,85]};
-$('btnLobby').onclick=()=>selectRoom('lobby');$('btnBuono').onclick=()=>selectRoom('buono');$('takePhoto').onclick=()=>$('cameraInput').click();$('pickImage').onclick=()=>$('galleryInput').click();$('cameraInput').onchange=handleImage;$('galleryInput').onchange=handleImage;$('runOcr').onclick=runOCR;$('applyManual').onclick=applyManual;$('confirmTables').onclick=confirmDetected;
-function selectRoom(room){selectedRoom=room;occupiedTables.clear();$('btnLobby').classList.toggle('active',room==='lobby');$('btnBuono').classList.toggle('active',room==='buono');$('roomName').textContent=room==='lobby'?'Lobby Bar':'Buono';renderPlan();updateAll()}
-async function handleImage(e){const f=e.target.files&&e.target.files[0];if(!f)return;selectedFile=f;ocrConfirmed=false;simphonyTables.clear();$('preview').src=URL.createObjectURL(f);$('preview').classList.add('show');$('runOcr').classList.remove('hidden');renderDetected();updateAll();showStatus('Imagen cargada. Preparando OCR automático...');await runOCR();e.target.value=''}
-function showStatus(msg,type='normal'){$('ocrStatus').textContent=msg;$('ocrStatus').className='status';if(type==='error')$('ocrStatus').classList.add('error');if(type==='success')$('ocrStatus').classList.add('success')}
-function progress(p){$('progressWrap').classList.remove('hidden');$('progressBar').style.width=Math.round(Math.max(0,Math.min(1,p||0))*100)+'%'}
-async function loadImage(file){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=URL.createObjectURL(file)})}
-async function preprocess(file,mode){const img=await loadImage(file);const maxWidth=2200;const scale=Math.min(3,maxWidth/img.width);const canvas=$('workCanvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));ctx.drawImage(img,0,0,canvas.width,canvas.height);const data=ctx.getImageData(0,0,canvas.width,canvas.height),d=data.data;for(let i=0;i<d.length;i+=4){const gray=.299*d[i]+.587*d[i+1]+.114*d[i+2];let v;if(mode==='threshold')v=gray>165?255:0;else v=Math.max(0,Math.min(255,(gray-128)*2.1+128));d[i]=d[i+1]=d[i+2]=v}ctx.putImageData(data,0,0);return canvas.toDataURL('image/jpeg',.94)}
-async function recognize(source,label,offset,span){showStatus('OCR '+label+': iniciando...');const result=await Tesseract.recognize(source,'eng',{logger:m=>{if(m.progress!=null)progress(offset+m.progress*span);showStatus('OCR '+label+': '+(m.status||'procesando')+' '+Math.round((m.progress||0)*100)+'%')}});return result.data.text||''}
-async function prepareOCRVariants(file){
-  const bitmap=await createImageBitmap(file);
-  const maxWidth=1800;
-  const scale=Math.min(3,Math.max(1.5,maxWidth/bitmap.width));
-  const w=Math.round(bitmap.width*scale), h=Math.round(bitmap.height*scale);
-  function makeCanvas(mode){
-    const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});
-    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-    ctx.drawImage(bitmap,0,0,w,h);
-    if(mode==='original')return canvas;
-    const img=ctx.getImageData(0,0,w,h), d=img.data;
-    for(let i=0;i<d.length;i+=4){
-      const gray=Math.round(.299*d[i]+.587*d[i+1]+.114*d[i+2]);
-      let v;
-      if(mode==='contrast') v=Math.max(0,Math.min(255,(gray-128)*2.3+128));
-      else v=gray<178?0:255;
-      d[i]=d[i+1]=d[i+2]=v; d[i+3]=255;
-    }
-    ctx.putImageData(img,0,0); return canvas;
-  }
-  const variants=[makeCanvas('contrast'),makeCanvas('threshold'),makeCanvas('original')];
-  bitmap.close();
-  return variants;
-}
-async function runOCR(){
-  if(!selectedFile)return;
-  if(!window.Tesseract){showStatus('No se pudo cargar Tesseract OCR. Comprueba la conexión a Internet y vuelve a intentarlo.',true);return;}
-  $('runOcr').disabled=true; simphonyTables.clear(); ocrConfirmed=false; setProgress(0);
-  showStatus('Preparando imagen: ampliación y mejora de contraste...');
-  try{
-    const variants=await prepareOCRVariants(selectedFile);
-    const allTexts=[]; const allTables=new Set();
-    for(let i=0;i<variants.length;i++){
-      showStatus('Lectura OCR '+(i+1)+' de '+variants.length+'...');
-      const result=await Tesseract.recognize(variants[i],'eng',{
-        logger:m=>{
-          if(m.progress!=null)setProgress((i+m.progress)/variants.length);
-          if(m.status)showStatus('OCR '+(i+1)+'/'+variants.length+': '+m.status+' '+Math.round((m.progress||0)*100)+'%');
-        }
-      });
-      const text=result.data.text||''; allTexts.push('--- LECTURA '+(i+1)+' ---\n'+text);
-      extractTables(text).forEach(n=>allTables.add(n));
-      if(allTables.size>0 && i>=1)break;
-    }
-    $('rawText').textContent=allTexts.join('\n\n');
-    [...allTables].sort((a,b)=>a-b).forEach(n=>simphonyTables.add(n));
-    renderDetected(); updateAll();
-    if(simphonyTables.size){
-      showStatus('Lectura terminada. Mesas detectadas: '+[...simphonyTables].sort((a,b)=>a-b).join(', ')+'. Revisa y confirma.');
-    }else{
-      showStatus('No se detectó una referencia clara. Repite la foto más cerca o escribe las mesas manualmente debajo.',true);
-      $('detectedArea').classList.remove('hidden'); $('emptyDetection').classList.add('hidden');
-      $('manualTables').focus();
-    }
-  }catch(err){
-    console.error(err);
-    showStatus('Error OCR: '+(err&&err.message?err.message:'no se pudo procesar la imagen')+'. Puedes cargar las mesas manualmente.',true);
-    $('detectedArea').classList.remove('hidden'); $('emptyDetection').classList.add('hidden');
-  }finally{
-    $('runOcr').disabled=false; $('progressWrap').classList.add('hidden');
-  }
-}
-function extractTables(text){
-  let normalized=String(text||'')
-    .replace(/[|!]/g,'l')
-    .replace(/T\s*[bB8]\s*[lLiI1]/g,'Tbl')
-    .replace(/Tbi|TbI|Tb1|T8l/gi,'Tbl')
-    .replace(/[\\]/g,'/');
-  const values=[];
-  const patterns=[
-    /\bTbl\s*[:\-]?\s*(\d{1,3})\s*[\/]/gi,
-    /\bTbl\s*[:\-]?\s*(\d{1,3})\s+[lI1]\b/gi
-  ];
-  for(const regex of patterns){
-    let match;
-    while((match=regex.exec(normalized))!==null){
-      const n=Number(match[1]);
-      if(Number.isInteger(n)&&n>0&&n<1000&&!values.includes(n))values.push(n);
-    }
-  }
-  return values.sort((a,b)=>a-b);
-}
-function renderDetected(){const has=simphonyTables.size>0;$('emptyDetection').classList.toggle('hidden',has);$('detectedArea').classList.remove('hidden');$('chips').innerHTML='';[...simphonyTables].sort((a,b)=>a-b).forEach(n=>{const c=document.createElement('span');c.className='chip';c.textContent=n;$('chips').appendChild(c)});$('manualTables').value=[...simphonyTables].sort((a,b)=>a-b).join(', ')}
-function applyManual(){const nums=$('manualTables').value.match(/\d{1,3}/g)||[];simphonyTables.clear();nums.map(Number).filter(n=>n>0).forEach(n=>simphonyTables.add(n));ocrConfirmed=false;renderDetected();updateAll();showStatus('Lista manual aplicada. Pulsa “Confirmar mesas abiertas”.','success')}
-function confirmDetected(){if(!simphonyTables.size){showStatus('No hay mesas para confirmar. Añade los números manualmente.','error');return}ocrConfirmed=true;showStatus('Mesas abiertas confirmadas. Marca ahora las mesas ocupadas.','success');updateAll()}
-function renderPlan(){const f=$('floor');f.innerHTML='';if(!selectedRoom){f.innerHTML='<div class="placeholder">Selecciona un salón.</div>';return}const list=rooms[selectedRoom],cols=5;list.forEach((n,i)=>{const b=document.createElement('button');b.type='button';b.className='table';b.dataset.table=n;b.textContent=n;b.style.left=(10+(i%cols)*20)+'%';b.style.top=(7+Math.floor(i/cols)*13)+'%';b.onclick=()=>{occupiedTables.has(n)?occupiedTables.delete(n):occupiedTables.add(n);updateAll()};f.appendChild(b)})}
-function updateAll(){document.querySelectorAll('.table').forEach(el=>{const n=Number(el.dataset.table),occupied=occupiedTables.has(n),open=simphonyTables.has(n);el.className='table';if(ocrConfirmed){if(occupied&&open)el.classList.add('ok');else if(occupied&&!open)el.classList.add('discrepancy');else if(open)el.classList.add('open')}else if(occupied)el.classList.add('occupied')});$('occupiedCount').textContent=occupiedTables.size;$('simphonyCount').textContent=simphonyTables.size;let d=0;if(ocrConfirmed)occupiedTables.forEach(n=>{if(!simphonyTables.has(n))d++});$('discrepancyCount').textContent=d}
-</script>
-</body>
-</html>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>SPOTCHECK OCR LAB</title><script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script><style>*{box-sizing:border-box}body{margin:0;background:#eef2f7;color:#0f172a;font-family:system-ui,-apple-system,Segoe UI,sans-serif}header{background:#111827;color:#fff;padding:16px;text-align:center}main{max-width:760px;margin:auto;padding:12px}.card{background:#fff;border-radius:16px;padding:15px;margin:12px 0;box-shadow:0 2px 9px #0001}h2{font-size:18px;margin:0 0 10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.btn{border:0;border-radius:12px;min-height:50px;padding:10px;font-weight:800}.blue{background:#2563eb;color:#fff}.green{background:#16a34a;color:#fff}.violet{background:#7c3aed;color:#fff}.gray{background:#e2e8f0}.active{outline:3px solid #38bdf8;background:#111827;color:#fff}.hidden{display:none}.preview{width:100%;max-height:360px;object-fit:contain;border-radius:12px;background:#020617;margin-top:10px}.status{padding:11px;border-radius:10px;background:#e0f2fe;color:#075985;margin-top:10px;font-size:14px}.bad{background:#fee2e2;color:#991b1b}.chips{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.chip{background:#dbeafe;border:2px solid #2563eb;border-radius:9px;padding:7px 11px;font-weight:900}.manual{display:grid;grid-template-columns:1fr auto;gap:7px}.manual input{min-width:0;padding:12px;border:2px solid #cbd5e1;border-radius:10px;font-size:16px}.manual button{border:0;border-radius:10px;background:#111827;color:#fff;font-weight:800;padding:0 14px}.floor{position:relative;aspect-ratio:4/5;border:3px solid #111827;border-radius:12px;background:#f8fafc;overflow:hidden}.t{position:absolute;transform:translate(-50%,-50%);width:45px;height:45px;border:3px solid #111827;border-radius:9px;background:#fff;font-weight:900}.t.open{background:#60a5fa}.t.occ{background:#facc15}.t.ok{background:#22c55e}.t.bad{background:#dc2626;color:#fff}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.sum div{text-align:center;background:#f1f5f9;border-radius:10px;padding:9px}.num{font-size:22px;font-weight:900}.help{font-size:13px;color:#64748b}details pre{white-space:pre-wrap;max-height:240px;overflow:auto;background:#f8fafc;padding:10px;border-radius:8px}progress{width:100%;height:14px}</style></head><body><header><b>SPOTCHECK OCR LAB</b><div style="font-size:12px;color:#cbd5e1">prueba Tesseract + carga manual + comparación</div></header><main>
+<section class="card"><h2>1. Salón</h2><div class="grid"><button id="lobby" class="btn blue">Lobby Bar</button><button id="buono" class="btn blue">Buono</button></div></section>
+<section class="card"><h2>2. Reporte Simphony</h2><div class="grid"><button id="cam" class="btn green">📷 Tomar foto</button><button id="gal" class="btn gray">🖼️ Elegir imagen</button></div><input id="camIn" class="hidden" type="file" accept="image/*" capture="environment"><input id="galIn" class="hidden" type="file" accept="image/*"><img id="img" class="preview hidden"><button id="retry" class="btn violet hidden" style="width:100%;margin-top:9px">🔄 Repetir OCR</button><progress id="prog" class="hidden" max="1" value="0"></progress><div id="status" class="status">Puedes usar OCR o cargar las mesas manualmente.</div><details><summary>Diagnóstico OCR</summary><pre id="raw">Sin lectura todavía.</pre></details></section>
+<section class="card"><h2>3. Mesas abiertas en Simphony</h2><div id="chips" class="chips"></div><div class="manual"><input id="manual" placeholder="Ej.: 23, 25, 30, 34" inputmode="numeric"><button id="load">Cargar</button></div><button id="confirm" class="btn blue" style="width:100%;margin-top:9px">Confirmar y comparar</button><p class="help">Si OCR falla, escribe las mesas. Solo se aceptan mesas existentes en el salón seleccionado.</p></section>
+<section class="card"><h2>4. Plano de prueba</h2><p class="help">Toca las mesas que ves ocupadas. Este plano es provisional, la posición real se incorporará después.</p><div id="floor" class="floor"></div><p class="help">Azul = abierta Simphony · Amarillo = ocupada sin comparar · Verde = ocupada y abierta · Rojo = ocupada no abierta</p></section>
+<section class="card"><h2>Resumen</h2><div class="sum"><div><span id="oc" class="num">0</span><br><small>Ocupadas</small></div><div><span id="op" class="num">0</span><br><small>Simphony</small></div><div><span id="di" class="num" style="color:#dc2626">0</span><br><small>Discrepancias</small></div></div></section>
+</main><script>'use strict';const $=x=>document.getElementById(x);let room=null,file=null,confirmed=false;const open=new Set,occ=new Set;const rooms={lobby:[1,2,3,4,5,6,7,8,9,10,11,20,21,22,23,24,25,30,31,32,33,34,40,41,42,43,44],buono:[1,2,3,4,5,6,7,8,10,11,12,20,21,22,23,24,30,31,32,33,34,35,36,40,41,42,43,44,50,51,60,61,80,81,82,83,84,85]};
+$('lobby').onclick=()=>setRoom('lobby');$('buono').onclick=()=>setRoom('buono');$('cam').onclick=()=>$('camIn').click();$('gal').onclick=()=>$('galIn').click();$('camIn').onchange=pick;$('galIn').onchange=pick;$('retry').onclick=ocr;$('load').onclick=manualLoad;$('confirm').onclick=()=>{if(!room)return msg('Selecciona primero un salón.',1);confirmed=true;render();msg('Comparación activada. Marca las mesas ocupadas.')};
+function msg(s,b=0){$('status').textContent=s;$('status').className='status'+(b?' bad':'')}
+function setRoom(r){room=r;occ.clear();confirmed=false;$('lobby').classList.toggle('active',r==='lobby');$('buono').classList.toggle('active',r==='buono');renderFloor();render()}
+async function pick(e){const f=e.target.files&&e.target.files[0];if(!f)return;file=f;$('img').src=URL.createObjectURL(f);$('img').classList.remove('hidden');$('retry').classList.remove('hidden');await ocr();e.target.value=''}
+function extract(text){text=String(text||'').replace(/[|!]/g,'l').replace(/T\s*[bB8]\s*[lLiI1]/g,'Tbl').replace(/Tbi|TbI|Tb1|T8l/gi,'Tbl').replace(/\\/g,'/');let a=[];for(const re of [/\bTbl\s*[:\-]?\s*(\d{1,3})\s*\//gi,/\bTbl\s*[:\-]?\s*(\d{1,3})\s+[lI1]\b/gi]){let m;while((m=re.exec(text))){let n=+m[1];if(n>0&&!a.includes(n))a.push(n)}}return a.sort((a,b)=>a-b)}
+async function ocr(){if(!file)return;if(!window.Tesseract)return msg('Tesseract no cargó. Usa carga manual.',1);$('prog').classList.remove('hidden');$('retry').disabled=true;open.clear();confirmed=false;try{const res=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.progress!=null)$('prog').value=m.progress;msg('OCR: '+(m.status||'procesando')+' '+Math.round((m.progress||0)*100)+'%')}});$('raw').textContent=res.data.text||'';const nums=extract(res.data.text);nums.forEach(n=>open.add(n));$('manual').value=nums.join(', ');chips();render();msg(nums.length?'Detectadas: '+nums.join(', ')+'. Revisa y confirma.':'OCR sin coincidencias Tbl claras. Usa carga manual.',!nums.length)}catch(e){$('raw').textContent=String(e);msg('OCR falló. La carga manual sigue disponible.',1)}finally{$('prog').classList.add('hidden');$('retry').disabled=false}}
+function manualLoad(){const nums=[...new Set(( $('manual').value.match(/\d{1,3}/g)||[]).map(Number))];if(!room)return msg('Selecciona un salón antes de cargar mesas.',1);const valid=new Set(rooms[room]),rej=[];open.clear();nums.forEach(n=>valid.has(n)?open.add(n):rej.push(n));confirmed=false;chips();render();msg('Carga manual: '+([...open].join(', ')||'sin mesas válidas')+(rej.length?'. No están en el plano: '+rej.join(', '):''),rej.length)}
+function chips(){$('chips').innerHTML='';[...open].sort((a,b)=>a-b).forEach(n=>{let s=document.createElement('span');s.className='chip';s.textContent=n;$('chips').appendChild(s)})}
+function renderFloor(){const f=$('floor');f.innerHTML='';if(!room){f.innerHTML='<div style="padding:20px;color:#64748b">Selecciona un salón.</div>';return}rooms[room].forEach((n,i)=>{let b=document.createElement('button');b.className='t';b.dataset.n=n;b.textContent=n;b.style.left=(10+(i%5)*20)+'%';b.style.top=(7+Math.floor(i/5)*13)+'%';b.onclick=()=>{occ.has(n)?occ.delete(n):occ.add(n);render()};f.appendChild(b)})}
+function render(){document.querySelectorAll('.t').forEach(b=>{const n=+b.dataset.n,o=occ.has(n),p=open.has(n);b.className='t';if(confirmed){if(o&&p)b.classList.add('ok');else if(o&&!p)b.classList.add('bad');else if(p)b.classList.add('open')}else if(o)b.classList.add('occ')});$('oc').textContent=occ.size;$('op').textContent=open.size;let d=0;if(confirmed)occ.forEach(n=>{if(!open.has(n))d++});$('di').textContent=d;chips()}
+renderFloor();</script></body></html>
