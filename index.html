@@ -14,10 +14,10 @@
 <main>
 <section class="card">
 <h2>1. Mesas abiertas en Simphony</h2>
-<p class="help">Puedes cargar un archivo Open Checks en CSV, XLS o XLSX. Si el archivo no sirve o quieres reemplazarlo, pulsa <b>Elegir otro archivo</b> y prueba nuevamente. La carga manual es opcional, no obligatoria.</p>
-<div class="grid2"><button id="chooseFile" class="btn btn-blue">📂 Cargar Open Checks</button><button id="retryFile" class="btn btn-gray">🔄 Elegir otro archivo</button></div>
-<input id="fileInput" class="hidden" type="file" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-<div id="chips" class="chips"></div><div id="fileStatus" class="status">Todavía no se cargó un archivo.</div>
+<p class="help">Puedes cargar un archivo Open Checks en XLS o XLSX. Si el archivo no sirve o quieres reemplazarlo, pulsa <b>Elegir otro archivo</b> y prueba nuevamente. La carga manual es opcional, no obligatoria.</p>
+<div class="grid2"><button id="chooseFile" class="btn btn-blue">📂 importar archivo Open Checks.xlsx</button><button id="retryFile" class="btn btn-gray">🔄 Elegir otro archivo</button></div>
+<input id="fileInput" class="hidden" type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+<div id="chips" class="chips"></div><div class="help">mesas obtenidas del reporte y registradas como abiertas en sistema</div><div id="fileStatus" class="status">Todavía no se cargó un archivo.</div>
 <div class="manual-wrap"><div class="help"><b>Alternativa manual opcional</b></div><div class="manual"><input id="manual" inputmode="numeric" placeholder="Ej.: 9, 10, 21, 25"><button id="manualLoad">Cargar mesas</button></div></div>
 </section>
 <section class="card"><h2>2. Plano táctil Lobby Bar</h2><p class="help">El archivo pinta inicialmente en azul las mesas encontradas. Después puedes corregir cualquier mesa libremente: <b>blanca → roja → azul → blanca</b>.</p><div class="orientation">Gira el teléfono a horizontal para ver mejor el plano general.</div><div class="floor-wrap"><div id="floor" class="floor"></div></div><div class="legend"><div><i class="sw" style="background:#2563eb"></i><b>Azul = Abierta en sistema y ocupada · OK</b></div><div><i class="sw" style="background:#dc2626"></i><b>Roja = Ocupada sin abrir · Discrepante</b></div><div><i class="sw" style="background:#fff"></i><b>Blanca = Libre</b></div></div></section>
@@ -39,9 +39,65 @@ function applyImported(nums,source){imported.clear();const rejected=[];[...new S
 $('chooseFile').onclick=()=>$('fileInput').click();$('retryFile').onclick=()=>$('fileInput').click();$('fileInput').onchange=readFile;
 $('manualLoad').onclick=()=>applyImported((($('manual').value.match(/\d{1,3}/g))||[]),'Carga manual');
 function norm(v){return String(v??'').trim().replace(/\s+/g,' ')}
-function findHeader(rows){for(let r=0;r<rows.length;r++){const h=rows[r].map(v=>norm(v).toLowerCase());const tableCol=h.findIndex(v=>v.includes('table number'));if(tableCol>=0)return{row:r,tableCol,nameCol:h.findIndex(v=>v==='name'||v.includes('revenue center'))}}return null}
-function extractLobby(rows){const hdr=findHeader(rows);if(!hdr)return[];const out=[];let inLobby=false;for(let r=hdr.row+1;r<rows.length;r++){const cells=rows[r].map(norm),rowText=cells.join(' | '),name=hdr.nameCol>=0?cells[hdr.nameCol]:cells[0];if(rowText.includes('BUESC Lobby Bar')){inLobby=true;const v=cells[hdr.tableCol];if(/^\d+(\.0+)?$/.test(v))out.push(Number(v));continue}if(inLobby&&/^BUESC\s/i.test(name)&&name!=='BUESC Lobby Bar')break;if(inLobby){const v=cells[hdr.tableCol];if(/^\d+(\.0+)?$/.test(v))out.push(Number(v))}}return[...new Set(out)]}
-async function readFile(e){const file=e.target.files&&e.target.files[0];if(!file)return;setStatus(`Leyendo ${file.name}...`);try{if(!window.XLSX)throw Error('no se cargó el lector de Excel/CSV');const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array',raw:false});let best=[];for(const sn of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});const values=extractLobby(rows);if(values.length>best.length)best=values}if(!best.length)throw Error('no se encontraron Table Number dentro de BUESC Lobby Bar');applyImported(best,`Archivo ${file.name}`)}catch(err){setStatus(`No pude extraer Lobby Bar de ${file.name}: ${err.message}. Puedes pulsar “Elegir otro archivo” y reintentar, o usar la carga manual opcional.`,true)}finally{e.target.value=''}}
+function numericTable(v){const s=norm(v).replace(',','.');return /^\d+(?:\.0+)?$/.test(s)?Number(s):null}
+function extractLobbyFromRows(rows){
+  // Strategy 1: discover any row containing Table Number, then locate the Lobby Bar block.
+  const candidates=[];
+  for(let h=0;h<rows.length;h++){
+    const header=rows[h].map(v=>norm(v).toLowerCase());
+    header.forEach((v,c)=>{if(v.includes('table number'))candidates.push({h,c})});
+  }
+  for(const {h,c} of candidates){
+    let inLobby=false; const out=[];
+    for(let r=h+1;r<rows.length;r++){
+      const cells=rows[r].map(norm), joined=cells.join(' | ');
+      if(joined.includes('BUESC Lobby Bar')){inLobby=true;continue}
+      if(inLobby && cells.some(v=>/^BUESC\s/i.test(v)) && !joined.includes('BUESC Lobby Bar'))break;
+      if(inLobby){const n=numericTable(cells[c]);if(n!==null)out.push(n)}
+    }
+    if(out.length)return [...new Set(out)];
+  }
+  // Strategy 2: report exports sometimes repeat/shift columns. Anchor on Lobby Bar and scan
+  // the subsequent detail rows while using the known Table Number column from the nearest header.
+  for(let r=0;r<rows.length;r++){
+    const joined=rows[r].map(norm).join(' | ');
+    if(!joined.includes('BUESC Lobby Bar'))continue;
+    let tableCol=-1;
+    for(let h=r;h>=0 && h>=r-20;h--){
+      const hdr=rows[h].map(v=>norm(v).toLowerCase());
+      const c=hdr.findIndex(v=>v.includes('table number'));
+      if(c>=0){tableCol=c;break}
+    }
+    if(tableCol<0)continue;
+    const out=[];
+    for(let k=r+1;k<rows.length;k++){
+      const cells=rows[k].map(norm), text=cells.join(' | ');
+      if(cells.some(v=>/^BUESC\s/i.test(v)) && !text.includes('BUESC Lobby Bar'))break;
+      const n=numericTable(cells[tableCol]);if(n!==null)out.push(n);
+    }
+    if(out.length)return [...new Set(out)];
+  }
+  return [];
+}
+async function readFile(e){
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  setStatus(`Leyendo ${file.name}...`);
+  try{
+    if(!/\.(xls|xlsx)$/i.test(file.name))throw Error('el archivo debe ser .xls o .xlsx');
+    if(!window.XLSX)throw Error('no se cargó el lector de Excel');
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array',raw:false,cellDates:true});
+    let best=[];
+    for(const sn of wb.SheetNames){
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+      const nums=extractLobbyFromRows(rows);
+      if(nums.length>best.length)best=nums;
+    }
+    if(!best.length)throw Error('no se encontraron Table Number dentro de BUESC Lobby Bar');
+    applyImported(best,`Archivo leído correctamente: ${file.name}`);
+  }catch(err){
+    setStatus(`No pude extraer Lobby Bar de ${file.name}: ${err.message}. Puedes pulsar “Elegir otro archivo” y reintentar, o usar la carga manual opcional.`,true);
+  }finally{e.target.value=''}
+}
 function stateLists(){const blue=[...states].filter(([,s])=>s==='blue').map(([n])=>n).sort((a,b)=>a-b),red=[...states].filter(([,s])=>s==='red').map(([n])=>n).sort((a,b)=>a-b);return{blue,red,all:[...new Set([...blue,...red])].sort((a,b)=>a-b)}}
 function render(){document.querySelectorAll('.table').forEach(b=>{const s=states.get(+b.dataset.n)||'white';b.className='table'+(s==='red'?' state-red':s==='blue'?' state-blue':'')});const x=stateLists();$('activeCount').textContent=x.all.length;$('blueCount').textContent=x.blue.length;$('redCount').textContent=x.red.length;$('chips').innerHTML='';[...imported].sort((a,b)=>a-b).forEach(n=>{const c=document.createElement('span');c.className='chip';c.textContent=n;$('chips').appendChild(c)});$('result').textContent=x.red.length?`Discrepancias: mesas ${x.red.join(', ')}`:'Sin mesas rojas/discrepantes en el estado actual.'}
 function currentData(){const now=new Date(),x=stateLists();return{...x,fecha:now.toLocaleDateString('es-AR'),hora:now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),auditor:$('auditor').value.trim()||'NO INFORMADO',obs:$('obs').value.trim()||'Sin observaciones'}}
